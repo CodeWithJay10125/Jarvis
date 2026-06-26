@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BUDDY OS / VER 1.0</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --cyan: #00e5ff;
+    --cyan-dim: #00b8cc;
+    --cyan-dark: #004d5a;
+    --orange: #ff6600;
+    --orange-dim: #cc5200;
+    --green: #00ff88;
+    --green-dim: #00cc66;
+    --bg: #020d14;
+    --bg2: #041820;
+    --bg3: #061f2b;
+    --panel: rgba(0,180,220,0.04);
+    --border: rgba(0,229,255,0.25);
+    --border-bright: rgba(0,229,255,0.7);
+    --font-main: 'Orbitron', monospace;
+    --font-mono: 'Share Tech Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--cyan);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    user-select: none;
+  }
+
+  /* SCANLINE OVERLAY */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* TOP BAR */
+  #topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 48px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 20px;
+    z-index: 100;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  #topbar .sys-status { color: var(--green); display: flex; align-items: center; gap: 8px; }
+  #topbar .sys-status::before {
+    content: '';
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  #topbar .ticker {
+    flex: 1;
+    overflow: hidden;
+    color: var(--cyan-dim);
+  }
+  #topbar .ticker-inner {
+    display: inline-block;
+    animation: ticker 20s linear infinite;
+    white-space: nowrap;
+  }
+  @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+  #topbar .top-right {
+    font-family: var(--font-main);
+    font-size: 10px;
+    color: var(--cyan);
+    text-align: right;
+    letter-spacing: 1px;
+  }
+  #topbar .temps { color: var(--cyan-dim); font-size: 10px; }
+
+  /* MAIN LAYOUT */
+  #main {
+    position: fixed;
+    top: 48px; left: 0; right: 0; bottom: 48px;
+    display: grid;
+    grid-template-columns: 280px 1fr 280px;
+    gap: 0;
+  }
+
+  /* PANELS */
+  .panel {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+  }
+  .panel.right { border-right: none; border-left: 1px solid var(--border); }
+
+  .panel-box {
+    border: 1px solid var(--border);
+    background: rgba(0,20,30,0.6);
+    padding: 10px;
+    position: relative;
+  }
+  .panel-box::before, .panel-box::after {
+    content: '';
+    position: absolute;
+    width: 8px; height: 8px;
+    border-color: var(--cyan);
+    border-style: solid;
+  }
+  .panel-box::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+  .panel-box::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+  .box-title {
+    font-family: var(--font-main);
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--cyan);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  /* BAR METER */
+  .bar-wrap { margin: 4px 0; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; }
+  .bar-track { height: 4px; background: rgba(0,229,255,0.1); border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width 1s; }
+  .bar-fill.cyan { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+  .bar-fill.orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+  .bar-fill.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* MINI CHART */
+  .mini-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 40px;
+    margin-top: 6px;
+  }
+  .mini-bar {
+    flex: 1;
+    background: var(--cyan-dim);
+    opacity: 0.7;
+    border-radius: 1px;
+    min-height: 4px;
+    animation: barAnim 2s ease-in-out infinite alternate;
+  }
+  @keyframes barAnim {
+    from { opacity: 0.4; }
+    to { opacity: 1; }
+  }
+
+  /* BIG VALUE */
+  .big-val {
+    font-family: var(--font-main);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--orange);
+    text-shadow: 0 0 12px var(--orange);
+    margin: 4px 0;
+  }
+  .sub-val { font-size: 10px; color: var(--cyan-dim); letter-spacing: 1px; }
+
+  /* CENTER PANEL */
+  #center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ARC REACTOR */
+  #arc-container {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+  }
+  #arc-svg { width: 100%; height: 100%; }
+
+  .arc-ring {
+    fill: none;
+    stroke-width: 2;
+    transform-origin: center;
+    animation: rotateCW 8s linear infinite;
+  }
+  .arc-ring.ccw { animation: rotateCCW 6s linear infinite; }
+  .arc-ring.slow { animation-duration: 15s; }
+  @keyframes rotateCW { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  @keyframes rotateCCW { from{transform:rotate(360deg)} to{transform:rotate(0deg)} }
+
+  #arc-glow {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-main);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--cyan);
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+  #arc-glow .arc-status {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--cyan-dim);
+    animation: pulse 2s infinite;
+  }
+
+  /* STATUS BADGES */
+  #status-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .badge {
+    padding: 5px 14px;
+    border: 1px solid var(--border);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--cyan-dim);
+    font-family: var(--font-main);
+    position: relative;
+  }
+  .badge.active {
+    border-color: var(--green);
+    color: var(--green);
+    text-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+  .badge.listening {
+    border-color: var(--orange);
+    color: var(--orange);
+    text-shadow: 0 0 8px var(--orange);
+    animation: pulse 1s infinite;
+  }
+
+  /* CHAT AREA */
+  #chat-area {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+  }
+
+  .chat-box {
+    border: 1px solid var(--border);
+    background: rgba(0,20,30,0.8);
+    padding: 12px 16px;
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+  }
+  .chat-box::before, .chat-box::after {
+    content: '';
+    position: absolute;
+    width: 10px; height: 10px;
+    border-color: var(--cyan);
+    border-style: solid;
+  }
+  .chat-box::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+  .chat-box::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+  .chat-label {
+    font-family: var(--font-main);
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--cyan);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  #chat-box .chat-label { color: var(--green); }
+  #response-box .chat-label { color: var(--orange); }
+
+  .chat-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: rgba(0,229,255,0.7);
+    min-height: 28px;
+  }
+  #response-text {
+    color: rgba(255,255,255,0.85);
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 28px;
+  }
+
+  /* TYPING CURSOR */
+  .typing::after {
+    content: '█';
+    animation: blink 0.8s infinite;
+    color: var(--orange);
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* BOTTOM BAR */
+  #bottombar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 48px;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    z-index: 100;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    overflow: hidden;
+  }
+  .bottom-seg {
+    padding: 0 16px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .bottom-seg:last-child { border-right: none; }
+  .bottom-seg .seg-title { color: var(--cyan-dim); }
+  .bottom-seg .seg-val { color: var(--cyan); }
+  .bottom-seg .mini-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 24px;
+  }
+  .bottom-seg .mini-bars span {
+    width: 3px;
+    background: var(--cyan-dim);
+    border-radius: 1px;
+    animation: barAnim 1.5s ease-in-out infinite alternate;
+  }
+
+  #stark-logo {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-main);
+    font-size: 9px;
+    letter-spacing: 6px;
+    color: rgba(0,229,255,0.3);
+    padding: 0 16px;
+  }
+
+  /* WAKE ANIMATION OVERLAY */
+  #wake-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    flex-direction: column;
+    gap: 20px;
+    transition: opacity 1s;
+  }
+  #wake-overlay.hidden { opacity: 0; pointer-events: none; }
+  #wake-logo {
+    font-family: var(--font-main);
+    font-size: 48px;
+    font-weight: 900;
+    color: var(--cyan);
+    text-shadow: 0 0 40px var(--cyan), 0 0 80px var(--cyan-dim);
+    letter-spacing: 12px;
+    animation: logoGlow 2s ease-in-out infinite;
+  }
+  @keyframes logoGlow {
+    0%,100%{text-shadow:0 0 20px var(--cyan),0 0 40px var(--cyan-dim)}
+    50%{text-shadow:0 0 60px var(--cyan),0 0 100px var(--cyan-dim),0 0 160px rgba(0,229,255,0.3)}
+  }
+  #wake-sub {
+    font-family: var(--font-main);
+    font-size: 10px;
+    letter-spacing: 8px;
+    color: var(--cyan-dim);
+    animation: pulse 1.5s infinite;
+  }
+  #boot-progress {
+    width: 300px;
+    height: 2px;
+    background: rgba(0,229,255,0.1);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  #boot-bar {
+    height: 100%;
+    background: var(--cyan);
+    width: 0%;
+    box-shadow: 0 0 8px var(--cyan);
+    transition: width 0.3s;
+  }
+  #boot-msg {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--cyan-dim);
+    height: 16px;
+    text-align: center;
+  }
+
+  /* NOTIFICATION */
+  #notification {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg2);
+    border: 1px solid var(--cyan);
+    padding: 10px 24px;
+    font-family: var(--font-main);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--green);
+    z-index: 200;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    text-align: center;
+    text-shadow: 0 0 8px var(--green);
+  }
+  #notification.show { opacity: 1; }
+
+  /* VIS BARS (voice visualization) */
+  #voice-vis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 30px;
+    margin: 4px 0;
+  }
+  .v-bar {
+    width: 4px;
+    background: var(--cyan);
+    border-radius: 2px;
+    transition: height 0.1s;
+    min-height: 4px;
+    box-shadow: 0 0 4px var(--cyan);
+  }
+  .v-bar.active { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
+
+  /* NETWORK STATS */
+  .net-stat { font-size: 10px; color: var(--cyan-dim); margin: 3px 0; letter-spacing: 1px; }
+  .net-stat span { color: var(--cyan); }
+
+  /* TEMP BARS */
+  .temp-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+    font-size: 10px;
+  }
+  .temp-label { width: 50px; color: var(--cyan-dim); }
+  .temp-track { flex: 1; height: 4px; background: rgba(0,229,255,0.1); border-radius: 2px; overflow: hidden; }
+  .temp-bar { height: 100%; border-radius: 2px; }
+  .temp-val { width: 36px; text-align: right; color: var(--cyan); }
+  .temp-bar.gpu { background: var(--orange); box-shadow: 0 0 4px var(--orange); }
+  .temp-bar.cpua { background: var(--green); box-shadow: 0 0 4px var(--green); }
+  .temp-bar.cpub { background: var(--cyan); box-shadow: 0 0 4px var(--cyan); }
+  .temp-bar.local { background: var(--cyan-dim); }
+
+  /* MIC permission hint */
+  #mic-hint {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 600;
+    flex-direction: column;
+    gap: 20px;
+  }
+  #mic-hint.hidden { display: none; }
+  #mic-hint h2 {
+    font-family: var(--font-main);
+    font-size: 20px;
+    letter-spacing: 4px;
+    color: var(--cyan);
+    text-shadow: 0 0 20px var(--cyan);
+  }
+  #mic-hint p {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--cyan-dim);
+    text-align: center;
+    line-height: 1.8;
+  }
+  #mic-btn {
+    padding: 12px 36px;
+    border: 1px solid var(--cyan);
+    background: transparent;
+    color: var(--cyan);
+    font-family: var(--font-main);
+    font-size: 12px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+  #mic-btn:hover {
+    background: rgba(0,229,255,0.1);
+    box-shadow: 0 0 20px var(--cyan);
+    text-shadow: 0 0 8px var(--cyan);
+  }
+
+  /* CLAP HINT */
+  #clap-hint {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-main);
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: rgba(0,229,255,0.3);
+    z-index: 50;
+    text-align: center;
+    pointer-events: none;
+    animation: pulse 3s infinite;
+  }
+</style>
+</head>
+<body>
+
+<!-- MIC PERMISSION SCREEN -->
+<div id="mic-hint">
+  <h2>BUDDY OS</h2>
+  <p>VOICE COMMAND INTERFACE<br>MICROPHONE ACCESS REQUIRED<br><br>SAY "WAKE UP BUDDY" TO ACTIVATE</p>
+  <button id="mic-btn" onclick="requestMic()">INITIALIZE MIC ACCESS</button>
+</div>
+
+<!-- BOOT/WAKE OVERLAY -->
+<div id="wake-overlay" class="hidden">
+  <div id="wake-logo">BUDDY</div>
+  <div id="wake-sub">INITIALIZING SYSTEMS</div>
+  <div id="boot-progress"><div id="boot-bar"></div></div>
+  <div id="boot-msg">Loading neural interface...</div>
+</div>
+
+<!-- NOTIFICATION -->
+<div id="notification"></div>
+
+<!-- WAKE HINT -->
+<div id="clap-hint">SAY "WAKE UP BUDDY" TO ACTIVATE</div>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="sys-status">SYS ONLINE</div>
+  <div style="color:var(--cyan-dim);letter-spacing:3px;">COMMAND ACTIVE · AWAITING DIRECTIVES</div>
+  <div class="ticker">
+    <span class="ticker-inner">48000 Hz / 320 kbps / 2 CH &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; NEURAL LINK ACTIVE &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THREAT LEVEL: ZERO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ENCRYPTION: AES-256 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BUDDY OS RUNNING &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 48000 Hz / 320 kbps / 2 CH &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; NEURAL LINK ACTIVE &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; THREAT LEVEL: ZERO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ENCRYPTION: AES-256 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BUDDY OS RUNNING &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+  </div>
+  <div class="top-right">
+    BUDDY OS / VER 1.0 /<br>USER: BOSS
+  </div>
+  <div class="temps" id="top-temps">CPU: 45°C &nbsp; GPU: 42°C</div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT PANEL -->
+  <div class="panel">
+    <div class="panel-box">
+      <div class="box-title">CPU Usage</div>
+      <div class="big-val" id="cpu-val">85%</div>
+      <div class="bar-wrap">
+        <div class="bar-track"><div class="bar-fill orange" id="cpu-bar" style="width:85%"></div></div>
+      </div>
+      <div class="mini-chart" id="cpu-chart"></div>
+    </div>
+
+    <div class="panel-box">
+      <div class="box-title">System RAM</div>
+      <div class="sub-val">FREE: <span id="ram-free">16</span>GB / USED: <span id="ram-used">16</span>GB</div>
+      <div class="bar-wrap" style="margin-top:8px">
+        <div class="bar-track"><div class="bar-fill cyan" id="ram-bar" style="width:50%"></div></div>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div class="box-title">Drive #1 Status</div>
+      <div class="sub-val">TOTAL: 2TB / READ: 450 MB/s</div>
+      <div class="sub-val">WRITE: 410 MB/s</div>
+      <div class="mini-chart" id="drive-chart"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1">
+      <div class="panel-box">
+        <div class="box-title">Core 1</div>
+        <div class="mini-chart" id="core1-chart" style="height:50px"></div>
+      </div>
+      <div class="panel-box">
+        <div class="box-title">Core 2</div>
+        <div class="mini-chart" id="core2-chart" style="height:50px"></div>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div class="box-title">Net Up</div>
+      <div class="mini-chart" id="net-chart"></div>
+    </div>
+  </div>
+
+  <!-- CENTER PANEL -->
+  <div id="center">
+
+    <!-- ARC REACTOR -->
+    <div id="arc-container">
+      <svg id="arc-svg" viewBox="0 0 280 280" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="arcGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#00e5ff" stop-opacity="0.15"/>
+            <stop offset="100%" stop-color="#00e5ff" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <!-- Glow background -->
+        <circle cx="140" cy="140" r="130" fill="url(#arcGrad)" />
+        <circle cx="140" cy="140" r="130" fill="none" stroke="rgba(0,229,255,0.05)" stroke-width="1"/>
+        <!-- Outer ring with gaps -->
+        <circle cx="140" cy="140" r="120" fill="none" stroke="rgba(0,229,255,0.3)" stroke-width="1.5" stroke-dasharray="8 4" class="arc-ring slow"/>
+        <!-- Ring 2 -->
+        <circle cx="140" cy="140" r="110" fill="none" stroke="rgba(0,229,255,0.5)" stroke-width="1" stroke-dasharray="180 10 20 10" class="arc-ring"/>
+        <!-- Ring 3 ticks -->
+        <circle cx="140" cy="140" r="98" fill="none" stroke="rgba(0,229,255,0.4)" stroke-width="2" stroke-dasharray="3 6" class="arc-ring ccw"/>
+        <!-- Ring 4 -->
+        <circle cx="140" cy="140" r="86" fill="none" stroke="rgba(0,229,255,0.6)" stroke-width="1.5" stroke-dasharray="60 5 20 5 30 5" class="arc-ring slow ccw"/>
+        <!-- Dots ring -->
+        <circle cx="140" cy="140" r="74" fill="none" stroke="rgba(0,229,255,0.3)" stroke-width="1" stroke-dasharray="2 12" class="arc-ring"/>
+        <!-- Inner ring -->
+        <circle cx="140" cy="140" r="62" fill="none" stroke="rgba(0,229,255,0.7)" stroke-width="2" stroke-dasharray="90 5 10 5" class="arc-ring ccw"/>
+        <!-- Core -->
+        <circle cx="140" cy="140" r="45" fill="rgba(0,20,30,0.9)" stroke="rgba(0,229,255,0.8)" stroke-width="1.5"/>
+        <circle cx="140" cy="140" r="35" fill="none" stroke="rgba(0,229,255,0.4)" stroke-width="1" stroke-dasharray="4 4" class="arc-ring"/>
+        <!-- Arc reactor center glow -->
+        <circle cx="140" cy="140" r="20" fill="rgba(0,229,255,0.08)" stroke="rgba(0,229,255,0.9)" stroke-width="1.5"/>
+        <circle cx="140" cy="140" r="8" fill="rgba(0,229,255,0.5)"/>
+      </svg>
+      <div id="arc-glow">
+        <span id="arc-main-text">BUDDY</span>
+        <span class="arc-status" id="arc-sub-text">STANDBY</span>
+      </div>
+    </div>
+
+    <!-- STATUS ROW -->
+    <div id="status-row">
+      <div class="badge" id="badge-sleep">SLEEPING</div>
+      <div class="badge active" id="badge-mic">MIC ACTIVE</div>
+      <div class="badge" id="badge-cmos">CMOS: 0</div>
+      <div class="badge" id="badge-time">00:00</div>
+    </div>
+
+    <!-- VOICE VISUALIZER -->
+    <div id="voice-vis"></div>
+
+    <!-- CHAT AREA -->
+    <div id="chat-area">
+      <div class="chat-box" id="chat-box">
+        <div class="chat-label">YOU SAID</div>
+        <div class="chat-text" id="you-said">Awaiting input...</div>
+      </div>
+      <div class="chat-box" id="response-box">
+        <div class="chat-label">BUDDY RESPONSE</div>
+        <div id="response-text">System initialized. Ready for voice commands.</div>
+      </div>
+    </div>
+
+    <div style="font-family:var(--font-main);font-size:8px;letter-spacing:4px;color:rgba(0,229,255,0.2);margin-top:8px;">
+      STARK INDUSTRIES · ARC REACTOR MK VII
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel right">
+    <div class="panel-box">
+      <div class="box-title">Network &amp; Freq</div>
+      <div class="net-stat">FREQ: <span>4.2 GHz</span></div>
+      <div class="net-stat">LAN: <span>192.168.1.104</span></div>
+      <div class="net-stat">WAN: <span id="wan-ip">104.20.196.112</span></div>
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+        <div class="net-stat">CPU: <span id="net-cpu">85%</span> / MEM: <span id="net-mem">50%</span> / HDD: <span>32%</span></div>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:4px;">
+        <div style="font-family:var(--font-main);font-size:28px;font-weight:700;color:var(--cyan);text-shadow:0 0 16px var(--cyan);" id="weather-temp">30°C</div>
+        <div style="font-family:var(--font-main);font-size:16px;color:var(--cyan);" id="clock">11:02:42</div>
+      </div>
+      <div class="net-stat">CLEAR · HUMIDITY: 45% · WIND: 12 KM/H</div>
+      <div class="net-stat" style="margin-top:6px">TONIGHT: 22°C / TOMORROW: 31°C</div>
+    </div>
+
+    <div class="panel-box">
+      <div class="box-title">System Temps</div>
+      <div class="temp-row">
+        <div class="temp-label">GPU</div>
+        <div class="temp-track"><div class="temp-bar gpu" style="width:65%"></div></div>
+        <div class="temp-val">42°C</div>
+      </div>
+      <div class="temp-row">
+        <div class="temp-label">CPU-A</div>
+        <div class="temp-track"><div class="temp-bar cpua" style="width:50%"></div></div>
+        <div class="temp-val">38°C</div>
+      </div>
+      <div class="temp-row">
+        <div class="temp-label">CPU-B</div>
+        <div class="temp-track"><div class="temp-bar cpub" style="width:55%"></div></div>
+        <div class="temp-val">40°C</div>
+      </div>
+      <div class="temp-row">
+        <div class="temp-label">LOCAL</div>
+        <div class="temp-track"><div class="temp-bar local" style="width:25%"></div></div>
+        <div class="temp-val">25°C</div>
+      </div>
+    </div>
+
+    <div class="panel-box" style="flex:1">
+      <div class="box-title">Memory Cache</div>
+      <div class="bar-wrap" style="margin-top:8px">
+        <div class="bar-track"><div class="bar-fill cyan" style="width:72%"></div></div>
+      </div>
+      <div class="net-stat" style="margin-top:8px">ITEMS: <span>1,492,381</span></div>
+      <div class="net-stat">STATUS: <span style="color:var(--green);text-shadow:0 0 8px var(--green)">ARMED</span></div>
+    </div>
+
+    <div class="panel-box">
+      <div class="box-title">Battery</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <div class="big-val" id="battery-val">--</div>
+        <div class="sub-val" id="battery-status">DETECTING</div>
+      </div>
+      <div class="bar-wrap" style="margin-top:8px">
+        <div class="bar-track"><div class="bar-fill green" id="battery-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div class="box-title">Traffic</div>
+      <div class="net-stat">UP: <span id="net-up">12.4 MB/s</span></div>
+      <div class="net-stat">DL: <span id="net-dl">45.1 MB/s</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM BAR -->
+<div id="bottombar">
+  <div class="bottom-seg">
+    <span class="seg-title">NET UP</span>
+    <div class="mini-bars" id="bottom-net"></div>
+  </div>
+  <div class="bottom-seg">
+    <span class="seg-title">TRAFFIC</span>
+    <div class="seg-val">UP: 12.4 MB/s</div>
+    <div class="seg-val">DL: 45.1 MB/s</div>
+  </div>
+  <div id="stark-logo">B U D D Y &nbsp; I N D U S T R I E S</div>
+  <div class="bottom-seg">
+    <span class="seg-title">CPU#2</span>
+    <div class="mini-bars" id="bottom-cpu2"></div>
+  </div>
+  <div class="bottom-seg">
+    <span class="seg-title">MAIN CPU</span>
+    <div class="seg-val">USAGE: <span id="bottom-cpu-pct">45%</span></div>
+    <div class="seg-val">TEMP: 45°C</div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// GENERATE MINI CHARTS
+// ============================================================
+function makeMiniChart(id, color, count) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '';
+  for (let i = 0; i < (count || 20); i++) {
+    const b = document.createElement('div');
+    b.className = 'mini-bar';
+    const h = 8 + Math.random() * 32;
+    b.style.height = h + 'px';
+    b.style.background = color || 'var(--cyan-dim)';
+    b.style.animationDelay = (Math.random() * 2) + 's';
+    b.style.animationDuration = (1.5 + Math.random()) + 's';
+    el.appendChild(b);
+  }
+}
+function makeBottomBars(id, color, count) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '';
+  for (let i = 0; i < (count || 16); i++) {
+    const b = document.createElement('span');
+    b.style.height = (6 + Math.random() * 18) + 'px';
+    b.style.animationDelay = (Math.random() * 2) + 's';
+    b.style.animationDuration = (1 + Math.random()) + 's';
+    el.appendChild(b);
+  }
+}
+makeMiniChart('cpu-chart', 'var(--orange)', 20);
+makeMiniChart('drive-chart', 'var(--cyan-dim)', 20);
+makeMiniChart('core1-chart', 'var(--cyan)', 12);
+makeMiniChart('core2-chart', 'var(--cyan)', 12);
+makeMiniChart('net-chart', 'var(--green)', 20);
+makeBottomBars('bottom-net', null, 16);
+makeBottomBars('bottom-cpu2', null, 16);
+
+// Voice visualizer bars
+(function(){
+  const vis = document.getElementById('voice-vis');
+  for (let i = 0; i < 24; i++) {
+    const b = document.createElement('div');
+    b.className = 'v-bar';
+    b.style.height = '4px';
+    vis.appendChild(b);
+  }
+})();
+
+// ============================================================
+// CLOCK
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+  document.getElementById('badge-time').textContent = `${h}:${m}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+// BATTERY
+// ============================================================
+async function updateBattery() {
+  try {
+    const bat = await navigator.getBattery();
+    const pct = Math.round(bat.level * 100);
+    document.getElementById('battery-val').textContent = pct + '%';
+    document.getElementById('battery-status').textContent = bat.charging ? 'CHARGING' : 'ON BATTERY';
+    document.getElementById('battery-bar').style.width = pct + '%';
+    window._batteryPct = pct;
+    window._batteryCharging = bat.charging;
+    bat.addEventListener('levelchange', () => {
+      const p = Math.round(bat.level * 100);
+      document.getElementById('battery-val').textContent = p + '%';
+      document.getElementById('battery-bar').style.width = p + '%';
+      window._batteryPct = p;
+    });
+  } catch(e) {
+    document.getElementById('battery-val').textContent = '75%';
+    document.getElementById('battery-status').textContent = 'NOMINAL';
+    document.getElementById('battery-bar').style.width = '75%';
+    window._batteryPct = 75;
+  }
+}
+updateBattery();
+
+// ============================================================
+// LIVE STATS SIMULATION
+// ============================================================
+function randomize(base, range) {
+  return Math.min(99, Math.max(5, base + (Math.random()-0.5)*range));
+}
+setInterval(() => {
+  const cpu = Math.round(randomize(60, 40));
+  document.getElementById('cpu-val').textContent = cpu + '%';
+  document.getElementById('cpu-bar').style.width = cpu + '%';
+  document.getElementById('net-cpu').textContent = cpu + '%';
+  document.getElementById('bottom-cpu-pct').textContent = cpu + '%';
+
+  const mem = Math.round(randomize(50, 20));
+  document.getElementById('net-mem').textContent = mem + '%';
+  document.getElementById('ram-bar').style.width = mem + '%';
+
+  const up = (Math.random()*20+5).toFixed(1);
+  const dl = (Math.random()*50+20).toFixed(1);
+  document.getElementById('net-up').textContent = up + ' MB/s';
+  document.getElementById('net-dl').textContent = dl + ' MB/s';
+}, 3000);
+
+// ============================================================
+// NOTIFICATION
+// ============================================================
+function showNotif(msg, dur) {
+  const n = document.getElementById('notification');
+  n.textContent = msg;
+  n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), dur || 3000);
+}
+
+// ============================================================
+// TYPING EFFECT
+// ============================================================
+function typeText(el, text, speed, cb) {
+  el.textContent = '';
+  el.classList.add('typing');
+  let i = 0;
+  const timer = setInterval(() => {
+    if (i < text.length) {
+      el.textContent += text[i++];
+    } else {
+      clearInterval(timer);
+      el.classList.remove('typing');
+      if (cb) cb();
+    }
+  }, speed || 30);
+}
+
+// ============================================================
+// SPEECH SYNTHESIS (MALE VOICE)
+// ============================================================
+function speak(text, cb) {
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 0.92;
+  utter.pitch = 0.75;
+  utter.volume = 1;
+  // Pick male voice
+  const voices = window.speechSynthesis.getVoices();
+  const male = voices.find(v =>
+    /male|man|david|mark|daniel|james|guy|google uk english male/i.test(v.name)
+  ) || voices.find(v => !v.name.toLowerCase().includes('female') && v.lang.startsWith('en'));
+  if (male) utter.voice = male;
+  utter.onend = cb || null;
+  window.speechSynthesis.speak(utter);
+}
+window.speechSynthesis.onvoiceschanged = () => {};
+
+// ============================================================
+// VOICE VISUALIZER ANIMATION
+// ============================================================
+let visAnim = null;
+function startVis(isListening) {
+  const bars = document.querySelectorAll('.v-bar');
+  if (visAnim) clearInterval(visAnim);
+  visAnim = setInterval(() => {
+    bars.forEach(b => {
+      const h = isListening ? (4 + Math.random()*26) : (2 + Math.random()*8);
+      b.style.height = h + 'px';
+      b.className = 'v-bar' + (isListening ? ' active' : '');
+    });
+  }, 80);
+}
+function stopVis() {
+  if (visAnim) clearInterval(visAnim);
+  document.querySelectorAll('.v-bar').forEach(b => {
+    b.style.height = '4px';
+    b.className = 'v-bar';
+  });
+}
+
+// ============================================================
+// WAKE UP ANIMATION
+// ============================================================
+function playWakeAnimation(cb) {
+  const overlay = document.getElementById('wake-overlay');
+  const bar = document.getElementById('boot-bar');
+  const msg = document.getElementById('boot-msg');
+  const msgs = [
+    'Initializing neural interface...',
+    'Loading voice modules...',
+    'Syncing system databases...',
+    'BUDDY OS online...',
+  ];
+
+  overlay.classList.remove('hidden');
+  overlay.style.opacity = '1';
+
+  let pct = 0;
+  let msgIdx = 0;
+  const iv = setInterval(() => {
+    pct += 2;
+    bar.style.width = pct + '%';
+    if (pct % 25 === 0 && msgIdx < msgs.length) {
+      msg.textContent = msgs[msgIdx++];
+    }
+    if (pct >= 100) {
+      clearInterval(iv);
+      msg.textContent = 'READY.';
+      setTimeout(() => {
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+          overlay.classList.add('hidden');
+          bar.style.width = '0%';
+          if (cb) cb();
+        }, 800);
+      }, 400);
+    }
+  }, 20);
+}
+
+// ============================================================
+// WAKE UP RESPONSE
+// ============================================================
+function wakeUpBuddy() {
+  const badgeSleep = document.getElementById('badge-sleep');
+  const badgeMic = document.getElementById('badge-mic');
+  const arcSub = document.getElementById('arc-sub-text');
+  const youSaid = document.getElementById('you-said');
+  const responseText = document.getElementById('response-text');
+
+  youSaid.textContent = '"Wake up buddy"';
+
+  arcSub.textContent = 'WAKING';
+  badgeSleep.classList.remove('active');
+  badgeMic.classList.add('listening');
+
+  playWakeAnimation(() => {
+    arcSub.textContent = 'ONLINE';
+    badgeSleep.classList.add('active');
+    badgeSleep.textContent = 'AWAKE';
+    badgeMic.classList.remove('listening');
+    badgeMic.classList.add('active');
+
+    const pct = window._batteryPct || 75;
+    const charging = window._batteryCharging ? ', currently charging' : '';
+    const intro = `Welcome boss, we are online and our system is running on Windows 11 with ${pct} percentage capacity${charging}. What can I do for you, Boss?`;
+
+    startVis(false);
+    typeText(responseText, intro, 28, () => {});
+    speak(intro, () => {
+      stopVis();
+      arcSub.textContent = 'LISTENING';
+      startListening();
+    });
+  });
+}
+
+// ============================================================
+// SPEECH RECOGNITION
+// ============================================================
+let recognition = null;
+let isListening = false;
+let isProcessing = false;
+let micGranted = false;
+
+function initRecognition() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) return;
+
+  recognition = new SpeechRec();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('badge-mic').classList.add('listening');
+    document.getElementById('arc-sub-text').textContent = 'LISTENING';
+    startVis(true);
+  };
+
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript.trim();
+    document.getElementById('you-said').textContent = `"${transcript}"`;
+    stopVis();
+    isListening = false;
+    processCommand(transcript);
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') {
+      restartListening();
+      return;
+    }
+    isListening = false;
+    stopVis();
+    restartListening();
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    stopVis();
+    if (!isProcessing) {
+      setTimeout(restartListening, 500);
+    }
+  };
+}
+
+function startListening() {
+  if (!recognition || isListening || isProcessing) return;
+  try {
+    recognition.start();
+  } catch(e) {}
+}
+
+function restartListening() {
+  if (!micGranted || isProcessing) return;
+  setTimeout(() => {
+    if (!isListening && !isProcessing) startListening();
+  }, 800);
+}
+
+// ============================================================
+// WAKE STATE
+// ============================================================
+let buddyAwake = false;
+
+// ============================================================
+// PROCESS COMMAND
+// ============================================================
+function processCommand(cmd) {
+  isProcessing = true;
+  stopVis();
+  document.getElementById('badge-mic').classList.remove('listening');
+  document.getElementById('arc-sub-text').textContent = 'PROCESSING';
+
+  const lower = cmd.toLowerCase();
+
+  // Wake up command
+  if ((lower.includes('wake up') || lower.includes('wakeup')) && lower.includes('buddy')) {
+    isProcessing = false;
+    if (!buddyAwake) {
+      buddyAwake = true;
+      wakeUpBuddy();
+    } else {
+      respondAndListen("I'm already online, boss. What can I do for you?");
+    }
+    return;
+  }
+
+  if (!buddyAwake) {
+    isProcessing = false;
+    restartListening();
+    return;
+  }
+
+  let response = '';
+  let action = null;
+
+  // OPEN APPS
+  if (lower.includes('open vs code') || lower.includes('open visual studio')) {
+    response = 'Opening Visual Studio Code for you, boss.';
+    action = () => window.open('vscode://', '_blank');
+  } else if (lower.includes('open youtube')) {
+    if (lower.includes('play')) {
+      const match = cmd.match(/play (.+)/i);
+      const song = match ? match[1] : '';
+      response = song ? `Opening YouTube and searching for ${song}, sir.` : 'Opening YouTube for you, boss.';
+      action = () => window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(song || '')}`, '_blank');
+    } else {
+      response = 'Opening YouTube, sir.';
+      action = () => window.open('https://www.youtube.com', '_blank');
+    }
+  } else if (lower.includes('open google')) {
+    response = 'Opening Google, boss.';
+    action = () => window.open('https://www.google.com', '_blank');
+  } else if (lower.includes('open spotify')) {
+    response = 'Launching Spotify for you, sir.';
+    action = () => window.open('https://open.spotify.com', '_blank');
+  } else if (lower.includes('open gmail') || lower.includes('check mail') || lower.includes('check email')) {
+    response = 'Opening your Gmail, boss.';
+    action = () => window.open('https://mail.google.com', '_blank');
+  } else if (lower.includes('open github')) {
+    response = 'Opening GitHub, sir.';
+    action = () => window.open('https://github.com', '_blank');
+  } else if (lower.includes('open netflix')) {
+    response = 'Launching Netflix, boss.';
+    action = () => window.open('https://netflix.com', '_blank');
+  } else if (lower.includes('open twitter') || lower.includes('open x')) {
+    response = 'Opening X, formerly Twitter, sir.';
+    action = () => window.open('https://x.com', '_blank');
+  } else if (lower.includes('search') || lower.includes('google')) {
+    const match = cmd.match(/(?:search|google) (?:for )?(.+)/i);
+    const q = match ? match[1] : cmd;
+    response = `Searching for ${q}, boss.`;
+    action = () => window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`, '_blank');
+  } else if (lower.includes('play') && (lower.includes('song') || lower.includes('music'))) {
+    const match = cmd.match(/play (.+?)(?:\s+on|$)/i);
+    const song = match ? match[1] : cmd;
+    response = `Searching YouTube for ${song}, sir.`;
+    action = () => window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(song)}`, '_blank');
+  }
+  // TIME & DATE
+  else if (lower.includes('what time') || lower.includes('current time')) {
+    const now = new Date();
+    response = `The current time is ${now.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'})}, boss.`;
+  } else if (lower.includes('what') && lower.includes('date')) {
+    const now = new Date();
+    response = `Today is ${now.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'})}, sir.`;
+  }
+  // BATTERY
+  else if (lower.includes('battery')) {
+    const pct = window._batteryPct || 75;
+    response = `Battery is at ${pct} percent, boss.`;
+  }
+  // WEATHER
+  else if (lower.includes('weather')) {
+    response = 'Current conditions: 30 degrees Celsius, clear skies, humidity 45 percent, winds at 12 kilometers per hour.';
+  }
+  // JOKES
+  else if (lower.includes('joke')) {
+    const jokes = [
+      "Why do programmers prefer dark mode? Because light attracts bugs, sir.",
+      "I told my computer I needed a break. Now it won't stop sending me vacation ads, boss.",
+      "Why don't scientists trust atoms? Because they make up everything, sir.",
+    ];
+    response = jokes[Math.floor(Math.random() * jokes.length)];
+  }
+  // HELLO / HI
+  else if (lower.includes('hello') || lower.includes('hi buddy') || lower.includes('hey buddy')) {
+    response = "Hello, boss! All systems operational. How can I assist you today?";
+  }
+  // SLEEP
+  else if (lower.includes('sleep') || lower.includes('go to sleep') || lower.includes('stand by')) {
+    response = "Going to standby mode, boss. Say wake up buddy to reactivate me.";
+    buddyAwake = false;
+    setTimeout(() => {
+      document.getElementById('badge-sleep').textContent = 'SLEEPING';
+      document.getElementById('badge-sleep').classList.remove('active');
+      document.getElementById('arc-sub-text').textContent = 'STANDBY';
+    }, 3000);
+  }
+  // STATUS
+  else if (lower.includes('status') || lower.includes('system status')) {
+    const cpu = document.getElementById('cpu-val').textContent;
+    const pct = window._batteryPct || 75;
+    response = `All systems nominal, boss. CPU at ${cpu}, battery at ${pct} percent, network online, temperature within safe limits.`;
+  }
+  // THANK YOU
+  else if (lower.includes('thank') || lower.includes('thanks')) {
+    response = "Always at your service, boss.";
+  }
+  // DEFAULT
+  else {
+    const defaults = [
+      `Command received: ${cmd}. Processing your request, boss.`,
+      `Understood, sir. Executing: ${cmd}.`,
+      `Roger that, boss. Handling "${cmd}" right now.`,
+      `On it, sir. "${cmd}" - running that for you now.`,
+    ];
+    response = defaults[Math.floor(Math.random() * defaults.length)];
+  }
+
+  // DISPLAY + SPEAK
+  const responseText = document.getElementById('response-text');
+  startVis(false);
+  typeText(responseText, response, 25, () => {});
+  speak(response, () => {
+    stopVis();
+    isProcessing = false;
+    document.getElementById('arc-sub-text').textContent = 'LISTENING';
+    if (action) {
+      try { action(); } catch(e) {}
+    }
+    restartListening();
+  });
+}
+
+function respondAndListen(text) {
+  const responseText = document.getElementById('response-text');
+  isProcessing = true;
+  startVis(false);
+  typeText(responseText, text, 28, () => {});
+  speak(text, () => {
+    stopVis();
+    isProcessing = false;
+    restartListening();
+  });
+}
+
+// ============================================================
+// MIC INIT
+// ============================================================
+async function requestMic() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micGranted = true;
+
+    document.getElementById('mic-hint').classList.add('hidden');
+    initRecognition();
+
+    // Preload voices
+    window.speechSynthesis.getVoices();
+
+    showNotif('MICROPHONE ONLINE · SAY "WAKE UP BUDDY" TO BEGIN', 4000);
+    document.getElementById('arc-sub-text').textContent = 'READY';
+
+    const responseText = document.getElementById('response-text');
+    responseText.textContent = 'Microphone active. Say "Wake up Buddy" to begin.';
+
+    startListening();
+
+  } catch(e) {
+    alert('Microphone permission denied. Please allow microphone access and refresh.');
+  }
+}
+
+// ============================================================
+// MINIMIZE/MAXIMIZE (focus/blur)
+// ============================================================
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && buddyAwake) {
+    showNotif('BUDDY ONLINE · WELCOME BACK BOSS', 2000);
+  }
+});
+</script>
+</body>
+</html> 
